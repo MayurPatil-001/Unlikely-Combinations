@@ -30,6 +30,7 @@ class PlayState extends FlxState {
 	var tileSize:Int = 136;
 
 	var clickSound:FlxSound;
+	var levelGenerationCompleted:Bool = false;
 
 	// Substate
 	var gameOverSubstate:FlxSubState;
@@ -68,78 +69,83 @@ class PlayState extends FlxState {
 	}
 
 	override public function update(elapsed:Float):Void {
-		#if desktop
-		if (FlxG.mouse.justPressed) {
-			var xpos = FlxG.mouse.x;
-			var ypos = FlxG.mouse.y;
-			FlxG.overlap(new FlxObject(xpos, ypos), blocks, onOverlap);
-		}
-		#end
-		#if mobile
-		for (touch in FlxG.touches.list) {
-			if (touch.pressed) {
-				var xpos = touch.x;
-				var ypos = touch.y;
+		if (levelGenerationCompleted) {
+			#if desktop
+			if (FlxG.mouse.justPressed) {
+				var xpos = FlxG.mouse.x;
+				var ypos = FlxG.mouse.y;
 				FlxG.overlap(new FlxObject(xpos, ypos), blocks, onOverlap);
 			}
-		}
-		#end
-		// trace("levelSelectables =" + levelSelectables);
-		levelTime -= elapsed;
-		updateLevelTimeText();
+			#end
+			#if mobile
+			for (touch in FlxG.touches.list) {
+				if (touch.justPressed) {
+					var xpos = touch.x;
+					var ypos = touch.y;
+					FlxG.overlap(new FlxObject(xpos, ypos), blocks, onOverlap);
+				}
+			}
+			#end
+			// trace("levelSelectables =" + levelSelectables);
+			levelTime -= elapsed;
+			updateLevelTimeText();
 
-		if (levelTime <= 0.0) {
-			// GameOver Substate
+			if (levelTime <= 0.0) {
+				// GameOver Substate
 
-			var gameOverScoreText:FlxText;
-			gameOverSubstate = new FlxSubState(0x99808080);
-			var gameOverText:FlxText = new FlxText(0, 0, 0, "Game Over !", 30);
-			gameOverText.x = FlxG.width / 2 - gameOverText.width / 2;
-			gameOverText.y = FlxG.height / 2 - 60;
-			gameOverSubstate.add(gameOverText);
+				var gameOverScoreText:FlxText;
+				gameOverSubstate = new FlxSubState(0x99808080);
+				var gameOverText:FlxText = new FlxText(0, 0, 0, "Game Over !", 30);
+				gameOverText.x = FlxG.width / 2 - gameOverText.width / 2;
+				gameOverText.y = FlxG.height / 2 - 60;
+				gameOverSubstate.add(gameOverText);
 
-			gameOverScoreText = new FlxText(0, 0, 0, "Your Score:" + score, 30);
-			gameOverScoreText.x = FlxG.width / 2 - gameOverScoreText.width / 2;
-			gameOverScoreText.y = FlxG.height / 2;
-			gameOverSubstate.add(gameOverScoreText);
+				gameOverScoreText = new FlxText(0, 0, 0, "Your Score:" + score, 30);
+				gameOverScoreText.x = FlxG.width / 2 - gameOverScoreText.width / 2;
+				gameOverScoreText.y = FlxG.height / 2;
+				gameOverSubstate.add(gameOverScoreText);
 
-			var gameOverRestartButton:FlxButton = new FlxButton(0, 0, "Restart", restartGame);
-			gameOverRestartButton.loadGraphic(AssetPaths.Button_Blue__png, true, 190, 49);
-			gameOverRestartButton.x = FlxG.width / 2 - gameOverRestartButton.width / 2;
-			gameOverRestartButton.y = FlxG.height / 2 + 60;
-			gameOverRestartButton.onUp.sound = FlxG.sound.load(AssetPaths.click2__ogg, 100, false);
-			gameOverRestartButton.label.size = 30;
-			gameOverSubstate.add(gameOverRestartButton);
-			openSubState(gameOverSubstate);
+				var gameOverRestartButton:FlxButton = new FlxButton(0, 0, "Restart", restartGame);
+				gameOverRestartButton.loadGraphic(AssetPaths.Button_Blue__png, true, 190, 49);
+				gameOverRestartButton.x = FlxG.width / 2 - gameOverRestartButton.width / 2;
+				gameOverRestartButton.y = FlxG.height / 2 + 60;
+				gameOverRestartButton.onUp.sound = FlxG.sound.load(AssetPaths.click2__ogg, 100, false);
+				gameOverRestartButton.label.size = 30;
+				gameOverSubstate.add(gameOverRestartButton);
+				openSubState(gameOverSubstate);
+			}
 		}
 		super.update(elapsed);
 	}
 
 	function onOverlap(obj1:FlxObject, obj2:FlxObject):Void {
 		var block:GridBlock = cast obj2;
-		clickSound.play(true);
-		// trace("imageName :" + block.imageName);
-		if (selectedBlock.imageName == block.imageName) {
-			block.destroy();
-			score += 1;
-			updateScoreText();
-			levelSelectables--;
-		} else {
-			block.animate();
-			FlxG.camera.shake(0.01, 0.2);
-			score -= 2;
-			if (score < 0) {
-				score = 0;
-				// TODO: GameOver
+		if (block.alive) {
+			clickSound.play(true);
+			// trace("imageName :" + block.imageName);
+			if (selectedBlock.imageName == block.imageName) {
+				block.kill();
+				score += 1;
+				updateScoreText();
+				levelSelectables--;
+			} else {
+				block.animate();
+				FlxG.camera.shake(0.01, 0.2);
+				score -= 2;
+				if (score < 0) {
+					score = 0;
+					// TODO: GameOver
+				}
+				updateScoreText();
 			}
-			updateScoreText();
-		}
-		if (levelSelectables <= 0) {
-			generateGrid();
+			if (levelSelectables <= 0) {
+				generateGrid();
+			}
 		}
 	}
 
 	function generateGrid():Void {
+		levelGenerationCompleted = false;
 		trace("generateGrid Begin");
 		levelSelectables = 0;
 		blocks.clear();
@@ -180,6 +186,8 @@ class PlayState extends FlxState {
 
 		if (levelSelectables <= 0) {
 			generateGrid();
+		} else {
+			levelGenerationCompleted = true;
 		}
 	}
 
